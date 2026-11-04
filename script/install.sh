@@ -70,7 +70,7 @@ arch=$(uname -m)
 
 if [[ $arch == "x86_64" || $arch == "x64" || $arch == "amd64" ]]; then
     arch="64"
-elif [[ $arch == "aarch64" \vert{}\vert{} $arch == "arm64" ]]; then
+elif [[ $arch == "aarch64" || $arch == "arm64" ]]; then
     arch="arm64-v8a"
 elif [[ $arch == "s390x" ]]; then
     arch="s390x"
