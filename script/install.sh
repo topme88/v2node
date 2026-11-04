@@ -68,9 +68,9 @@ parse_args() {
 
 arch=$(uname -m)
 
-if [[ $arch == "x86_64" || $arch == "x64" || $arch == "amd64" ]]; then
+if [[ $arch == "x86_64" || $arch == "x64" \vert{}\vert{} $arch == "amd64" ]]; then
     arch="64"
-elif [[ $arch == "aarch64" || $arch == "arm64" ]]; then
+elif [[ $arch == "aarch64" \vert{}\vert{} $arch == "arm64" ]]; then
     arch="arm64-v8a"
 elif [[ $arch == "s390x" ]]; then
     arch="s390x"
@@ -267,13 +267,9 @@ install_v2node() {
     cd /usr/local/v2node/
 
     if  [[ -z "$version_param" ]] ; then
-        last_version=$(curl -Ls "https://api.github.com/repos/wyx2685/v2node/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-        if [[ ! -n "$last_version" ]]; then
-            echo -e "${red}检测 v2node 版本失败，可能是超出 Github API 限制，请稍后再试，或手动指定 v2node 版本安装${plain}"
-            exit 1
-        fi
-        echo -e "${green}检测到最新版本：${last_version}，开始安装...${plain}"
-        url="https://github.com/wyx2685/v2node/releases/download/${last_version}/v2node-linux-${arch}.zip"
+        last_version="v0.4.5"
+        echo -e "${green}锁定安装指定版本：${last_version}，开始安装...${plain}"
+        url="https://github.com/topme88/v2node/releases/download/${last_version}/v2node-linux-${arch}.zip"
         curl -sL "$url" | pv -s 30M -W -N "下载进度" > /usr/local/v2node/v2node-linux.zip
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 v2node 失败，请确保你的服务器能够下载 Github 的文件${plain}"
@@ -281,7 +277,7 @@ install_v2node() {
         fi
     else
     last_version=$version_param
-        url="https://github.com/wyx2685/v2node/releases/download/${last_version}/v2node-linux-${arch}.zip"
+        url="https://github.com/topme88/v2node/releases/download/${last_version}/v2node-linux-${arch}.zip"
         curl -sL "$url" | pv -s 30M -W -N "下载进度" > /usr/local/v2node/v2node-linux.zip
         if [[ $? -ne 0 ]]; then
             echo -e "${red}下载 v2node $1 失败，请确保此版本存在${plain}"
@@ -342,83 +338,3 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
         systemctl daemon-reload
-        systemctl stop v2node
-        systemctl enable v2node
-        echo -e "${green}v2node ${last_version}${plain} 安装完成，已设置开机自启"
-    fi
-
-    if [[ ! -f /etc/v2node/config.json ]]; then
-        # 如果通过 CLI 传入了完整参数，则直接生成配置并跳过交互
-        if [[ -n "$API_HOST_ARG" && -n "$NODE_ID_ARG" && -n "$API_KEY_ARG" ]]; then
-            generate_v2node_config "$API_HOST_ARG" "$NODE_ID_ARG" "$API_KEY_ARG"
-            echo -e "${green}已根据参数生成 /etc/v2node/config.json${plain}"
-            first_install=false
-        else
-            cp config.json /etc/v2node/
-            first_install=true
-        fi
-    else
-        if [[ x"${release}" == x"alpine" ]]; then
-            service v2node start
-        else
-            systemctl start v2node
-        fi
-        sleep 2
-        check_status
-        echo -e ""
-        if [[ $? == 0 ]]; then
-            echo -e "${green}v2node 重启成功${plain}"
-        else
-            echo -e "${red}v2node 可能启动失败，请使用 v2node log 查看日志信息${plain}"
-        fi
-        first_install=false
-    fi
-
-
-    curl -o /usr/bin/v2node -Ls https://raw.githubusercontent.com/wyx2685/v2node/main/script/v2node.sh
-    chmod +x /usr/bin/v2node
-
-    cd $cur_dir
-    rm -f install.sh
-    echo "------------------------------------------"
-    echo -e "管理脚本使用方法: "
-    echo "------------------------------------------"
-    echo "v2node              - 显示管理菜单 (功能更多)"
-    echo "v2node start        - 启动 v2node"
-    echo "v2node stop         - 停止 v2node"
-    echo "v2node restart      - 重启 v2node"
-    echo "v2node status       - 查看 v2node 状态"
-    echo "v2node enable       - 设置 v2node 开机自启"
-    echo "v2node disable      - 取消 v2node 开机自启"
-    echo "v2node log          - 查看 v2node 日志"
-    echo "v2node generate     - 生成 v2node 配置文件"
-    echo "v2node update       - 更新 v2node"
-    echo "v2node update x.x.x - 更新 v2node 指定版本"
-    echo "v2node install      - 安装 v2node"
-    echo "v2node uninstall    - 卸载 v2node"
-    echo "v2node version      - 查看 v2node 版本"
-    echo "------------------------------------------"
-    curl -fsS --max-time 10 "https://api.v-50.me/counter" || true
-
-    if [[ $first_install == true ]]; then
-        read -rp "检测到你为第一次安装 v2node，是否自动生成 /etc/v2node/config.json？(y/n): " if_generate
-        if [[ "$if_generate" =~ ^[Yy]$ ]]; then
-            # 交互式收集参数，提供示例默认值
-            read -rp "面板API地址[格式: https://example.com/]: " api_host
-            api_host=${api_host:-https://example.com/}
-            read -rp "节点ID: " node_id
-            node_id=${node_id:-1}
-            read -rp "节点通讯密钥: " api_key
-
-            # 生成配置文件（覆盖可能从包中复制的模板）
-            generate_v2node_config "$api_host" "$node_id" "$api_key"
-        else
-            echo "${green}已跳过自动生成配置。如需后续生成，可执行: v2node generate${plain}"
-        fi
-    fi
-}
-
-parse_args "$@"
-echo -e "${green}开始安装${plain}"
-install_base
-install_v2node "$VERSION_ARG"
